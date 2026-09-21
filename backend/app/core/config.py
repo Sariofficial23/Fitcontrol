@@ -56,7 +56,9 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="*")
     # Comma-separated Telegram IDs auto-promoted to platform_admin on login.
     # Lets the platform owner bootstrap access without shell/DB access.
-    platform_admin_ids: str = Field(default="")
+    # Defaults to the product owner's Telegram ID; override via the
+    # PLATFORM_ADMIN_IDS env var (env value wins over this default).
+    platform_admin_ids: str = Field(default="689136142")
 
     # --- Notifications / scheduler ---
     # Default IANA timezone used for daily summaries when a club has none set.
