@@ -6,11 +6,13 @@ import { ErrorState, Loading } from "./ui";
 import {
   IconClients,
   IconFinance,
+  IconMoon,
   IconOverview,
   IconPlans,
   IconPlatform,
   IconPlus,
   IconSettings,
+  IconSun,
   IconVisits,
 } from "./icons";
 import Onboarding from "./pages/Onboarding";
@@ -24,9 +26,29 @@ import Settings from "./pages/Settings";
 import Platform from "./pages/Platform";
 import SubscriptionBlocked from "./pages/SubscriptionBlocked";
 
+function resolvedTheme(): "light" | "dark" {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (attr === "light" || attr === "dark") return attr;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function Header() {
   const { t, lang, setLang } = useI18n();
   const { me, activeClub, selectClub } = useApp();
+  const nav = useNavigate();
+  const [theme, setThemeState] = useState<"light" | "dark">(resolvedTheme());
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("fc_theme", next);
+    } catch {
+      /* ignore */
+    }
+    setThemeState(next);
+  }
+
   return (
     <header className="app-header">
       <div className="brand">{t("app_name")}</div>
@@ -44,6 +66,14 @@ function Header() {
             ))}
           </select>
         )}
+        <button
+          className="hdr-btn"
+          onClick={toggleTheme}
+          aria-label="Theme"
+          title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+        >
+          {theme === "dark" ? <IconSun /> : <IconMoon />}
+        </button>
         <select
           className="select-sm"
           value={lang}
@@ -52,6 +82,24 @@ function Header() {
           <option value="ru">RU</option>
           <option value="uz">UZ</option>
         </select>
+        {me?.user.is_platform_admin && (
+          <button
+            className="hdr-btn"
+            onClick={() => nav("/platform")}
+            aria-label={t("nav_platform")}
+            title={t("nav_platform")}
+          >
+            <IconPlatform />
+          </button>
+        )}
+        <button
+          className="hdr-btn"
+          onClick={() => nav("/settings")}
+          aria-label={t("nav_settings")}
+          title={t("nav_settings")}
+        >
+          <IconSettings />
+        </button>
       </div>
     </header>
   );
@@ -59,19 +107,16 @@ function Header() {
 
 function BottomNav() {
   const { t } = useI18n();
-  const { me } = useApp();
   const nav = useNavigate();
   const [sheet, setSheet] = useState(false);
 
+  // Four tabs (2 left + 2 right) so the center FAB sits in an empty gap and
+  // never overlaps a tab. Settings & Platform live in the header.
   const tabs = [
     { to: "/overview", label: t("nav_overview"), Icon: IconOverview },
     { to: "/clients", label: t("nav_clients"), Icon: IconClients },
     { to: "/subscriptions", label: t("nav_subscriptions"), Icon: IconPlans },
     { to: "/finance", label: t("nav_finance"), Icon: IconFinance },
-    { to: "/settings", label: t("nav_settings"), Icon: IconSettings },
-    ...(me?.user.is_platform_admin
-      ? [{ to: "/platform", label: t("nav_platform"), Icon: IconPlatform }]
-      : []),
   ];
 
   function go(to: string) {

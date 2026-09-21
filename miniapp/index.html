@@ -7,6 +7,21 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>FitControl</title>
+    <!-- Apple-like typography (SF stand-in on non-Apple devices). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Apply saved theme before render to avoid a flash. -->
+    <script>
+      try {
+        var t = localStorage.getItem("fc_theme");
+        if (t === "dark" || t === "light")
+          document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    </script>
     <!-- Telegram WebApp SDK: provides initData + theme integration. -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>

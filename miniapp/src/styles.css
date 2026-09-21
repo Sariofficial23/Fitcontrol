@@ -1,27 +1,62 @@
+/* Light = Apple / iOS palette. */
 :root {
-  --bg: #f4f5f7;
+  --bg: #f2f2f7;
   --surface: #ffffff;
+  --elevated: #ffffff;
   --text: #1c1c1e;
   --muted: #8a8a8e;
-  --border: #e3e5e9;
-  --primary: #2f6fed;
+  --border: rgba(60, 60, 67, 0.14);
+  --primary: #007aff;
+  --primary-2: #5e5ce6;
   --primary-contrast: #ffffff;
-  --danger: #e5484d;
-  --success: #30a46c;
-  --warning: #f5a524;
-  --radius: 14px;
+  --danger: #ff3b30;
+  --success: #34c759;
+  --warning: #ff9500;
+  --radius: 16px;
   --nav-h: 62px;
 }
 
+/* Dark = Samsung One UI / true-black (AMOLED) palette. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #17181c;
-    --surface: #22242a;
-    --text: #f2f3f5;
-    --muted: #9aa0a6;
-    --border: #2f323a;
-    --primary: #5b8def;
+  :root:not([data-theme="light"]) {
+    --bg: #000000;
+    --surface: #1a1a1c;
+    --elevated: #232326;
+    --text: #ffffff;
+    --muted: #98989f;
+    --border: rgba(255, 255, 255, 0.12);
+    --primary: #0a84ff;
+    --primary-2: #7d7aff;
+    --danger: #ff453a;
+    --success: #30d158;
+    --warning: #ff9f0a;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #1a1a1c;
+  --elevated: #232326;
+  --text: #ffffff;
+  --muted: #98989f;
+  --border: rgba(255, 255, 255, 0.12);
+  --primary: #0a84ff;
+  --primary-2: #7d7aff;
+  --danger: #ff453a;
+  --success: #30d158;
+  --warning: #ff9f0a;
+}
+:root[data-theme="light"] {
+  --bg: #f2f2f7;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --text: #1c1c1e;
+  --muted: #8a8a8e;
+  --border: rgba(60, 60, 67, 0.14);
+  --primary: #007aff;
+  --primary-2: #5e5ce6;
+  --danger: #ff3b30;
+  --success: #34c759;
+  --warning: #ff9500;
 }
 
 * {
@@ -36,10 +71,12 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
   line-height: 1.4;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app {
@@ -67,7 +104,28 @@ body {
 }
 .header-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  align-items: center;
+}
+.hdr-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.hdr-btn svg {
+  width: 19px;
+  height: 19px;
+}
+.hdr-btn:active {
+  transform: scale(0.94);
 }
 
 .content {
@@ -143,23 +201,23 @@ body {
 .nav-fab {
   position: absolute;
   left: 50%;
-  top: -22px;
+  top: -18px;
   transform: translateX(-50%);
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   border: 0;
   cursor: pointer;
   color: #fff;
-  background: linear-gradient(135deg, var(--primary), #7b5cff);
-  box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--primary) 70%, transparent),
-    0 0 0 5px var(--surface);
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--primary) 65%, transparent),
+    0 0 0 4px var(--surface);
   display: grid;
   place-items: center;
 }
 .nav-fab svg {
-  width: 26px;
-  height: 26px;
+  width: 23px;
+  height: 23px;
 }
 .nav-fab:active {
   transform: translateX(-50%) scale(0.94);
