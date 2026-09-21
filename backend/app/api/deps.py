@@ -177,6 +177,23 @@ class RequireRole:
             raise ForbiddenError(
                 f"Requires at least role '{self.minimum.value}'", code="insufficient_role"
             )
+        # Platform access gate: an expired/suspended club is blocked server-side
+        # for everyone but the platform admin. The Mini App reads the club's
+        # subscription (in ClubOut) to show a "renew access" screen.
+        from app.services.activation import effective_access
+
+        access = effective_access(ctx.club)
+        if not access.allowed:
+            raise ForbiddenError(
+                f"Club subscription is {access.status}",
+                code="subscription_inactive",
+                details={
+                    "status": access.status,
+                    "expires_at": ctx.club.expires_at.isoformat()
+                    if ctx.club.expires_at
+                    else None,
+                },
+            )
         return ctx
 
 

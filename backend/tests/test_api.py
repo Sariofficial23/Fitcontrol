@@ -22,15 +22,42 @@ async def test_health(client):
     assert r.json()["status"] == "ok"
 
 
-async def test_create_club_makes_owner(client):
+async def test_self_service_club_creation_is_blocked(client):
+    # Regular users can no longer self-create a club (access is granted first).
     user = ApiUser(client, telegram_id=5001)
     r = await user.post("/api/v1/clubs", json={"name": "New Gym"})
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "not_platform_admin"
+
+
+async def test_redeem_activation_code_creates_club(client):
+    # Platform admin issues a code; a regular user redeems it to get a club.
+    await seed_user(9999, is_platform_admin=True)
+    admin = ApiUser(client, telegram_id=9999)
+    r = await admin.post(
+        "/api/v1/platform/activation-codes",
+        json={"plan_tier": "basic", "duration_days": 30, "is_trial": False},
+    )
     assert r.status_code == 201, r.text
-    club_id = r.json()["id"]
+    code = r.json()["code"]
+
+    user = ApiUser(client, telegram_id=5001)
+    r = await user.post("/api/v1/activation/redeem", json={"code": code, "name": "New Gym"})
+    assert r.status_code == 201, r.text
+    club = r.json()["club"]
+    assert club["subscription_status"] == "active"
+    assert club["expires_at"] is not None
+
     me = await user.get("/api/v1/auth/me")
-    assert me.status_code == 200
-    clubs = me.json()["clubs"]
-    assert any(c["club"]["id"] == club_id and c["role"] == "club_owner" for c in clubs)
+    assert any(
+        c["club"]["id"] == club["id"] and c["role"] == "club_owner"
+        for c in me.json()["clubs"]
+    )
+
+    # A code with max_uses=1 cannot be redeemed twice.
+    other = ApiUser(client, telegram_id=5002)
+    r = await other.post("/api/v1/activation/redeem", json={"code": code, "name": "Dup"})
+    assert r.status_code == 409
 
 
 # --------------------------------------------------------------------------- #

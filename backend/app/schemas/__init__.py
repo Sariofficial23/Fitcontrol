@@ -56,6 +56,10 @@ class ClubOut(ORMModel):
     expiry_reminder_days: int
     recovery_email: str | None = None
     recovery_phone: str | None = None
+    subscription_status: str
+    plan_tier: str | None = None
+    activated_at: datetime | None = None
+    expires_at: datetime | None = None
     created_at: datetime
 
 
@@ -368,3 +372,56 @@ class RecoveryResultOut(BaseModel):
     telegram_id: int
     affected_club_ids: list[int]
     message: str
+
+
+# --- Activation codes & platform subscription control ---
+class ActivationRedeemIn(BaseModel):
+    code: str = Field(min_length=3, max_length=32)
+    name: str = Field(min_length=1, max_length=200, description="New club name")
+
+
+class ActivationCodeCreate(BaseModel):
+    plan_tier: str = Field(default="basic", max_length=40)
+    duration_days: int = Field(gt=0, le=3650, description="Subscription length after redemption")
+    is_trial: bool = False
+    max_uses: int = Field(default=1, gt=0, le=1000)
+    valid_days: int | None = Field(default=None, gt=0, le=3650, description="Code validity window")
+    note: str | None = None
+
+
+class ActivationCodeOut(ORMModel):
+    id: int
+    code: str
+    plan_tier: str
+    duration_days: int
+    is_trial: bool
+    max_uses: int
+    uses_count: int
+    valid_until: datetime | None = None
+    status: str
+    note: str | None = None
+    created_at: datetime
+
+
+class SubscriptionStatusOut(BaseModel):
+    club_id: int
+    status: str            # effective: trial|active|expired|suspended
+    allowed: bool
+    expires_at: datetime | None = None
+    days_left: int | None = None
+
+
+class PlatformClubOut(BaseModel):
+    id: int
+    name: str
+    subscription_status: str   # effective status
+    plan_tier: str | None = None
+    expires_at: datetime | None = None
+    days_left: int | None = None
+    owner_telegram_id: int | None = None
+    created_at: datetime
+
+
+class ClubExtendIn(BaseModel):
+    days: int = Field(gt=0, le=3650)
+    plan_tier: str | None = Field(default=None, max_length=40)

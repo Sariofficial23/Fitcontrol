@@ -21,6 +21,43 @@ export interface Club {
   notify_overdue_enabled: boolean;
   notify_daily_summary_enabled: boolean;
   expiry_reminder_days: number;
+  subscription_status: string;
+  plan_tier?: string | null;
+  activated_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionStatus {
+  club_id: number;
+  status: string; // effective: trial|active|expired|suspended
+  allowed: boolean;
+  expires_at?: string | null;
+  days_left?: number | null;
+}
+
+export interface ActivationCode {
+  id: number;
+  code: string;
+  plan_tier: string;
+  duration_days: number;
+  is_trial: boolean;
+  max_uses: number;
+  uses_count: number;
+  valid_until?: string | null;
+  status: string;
+  note?: string | null;
+  created_at: string;
+}
+
+export interface PlatformClub {
+  id: number;
+  name: string;
+  subscription_status: string;
+  plan_tier?: string | null;
+  expires_at?: string | null;
+  days_left?: number | null;
+  owner_telegram_id?: number | null;
   created_at: string;
 }
 

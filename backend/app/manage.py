@@ -7,6 +7,9 @@ Usage:
   python -m app.manage set-webhook                   # register Telegram webhook
   python -m app.manage delete-webhook
   python -m app.manage webhook-info
+  python -m app.manage gen-code [days] [--trial] [--tier basic] [--uses 1]
+                                                     # issue an activation code
+  python -m app.manage list-codes
 
 Notes:
   * platform_admin is the "support" role for account recovery. It is granted
@@ -95,12 +98,83 @@ async def _webhook_info() -> None:
         await bot.session.close()
 
 
+async def _gen_code(days: int, is_trial: bool, tier: str, uses: int) -> None:
+    from app.services import activation as activation_svc
+
+    sm = get_sessionmaker()
+    async with sm() as db:
+        ac = await activation_svc.generate_code(
+            db,
+            actor_user_id=None,
+            plan_tier=tier,
+            duration_days=days,
+            is_trial=is_trial,
+            max_uses=uses,
+        )
+        await db.commit()
+        kind = "TRIAL" if is_trial else "PAID"
+        print(f"Activation code: {ac.code}  ({kind}, tier={ac.plan_tier}, {days} days, uses={uses})")
+
+
+async def _list_codes() -> None:
+    from sqlalchemy import select
+
+    from app.models import ActivationCode
+
+    sm = get_sessionmaker()
+    async with sm() as db:
+        rows = (
+            await db.execute(
+                select(ActivationCode).order_by(ActivationCode.created_at.desc()).limit(50)
+            )
+        ).scalars().all()
+        if not rows:
+            print("No activation codes.")
+            return
+        for a in rows:
+            print(
+                f"  {a.code}  tier={a.plan_tier} days={a.duration_days} "
+                f"trial={a.is_trial} uses={a.uses_count}/{a.max_uses} status={a.status}"
+            )
+
+
+def _parse_gen_code_args(args: list[str]) -> tuple[int, bool, str, int]:
+    days = 30
+    is_trial = False
+    tier = "basic"
+    uses = 1
+    i = 0
+    positional_used = False
+    while i < len(args):
+        a = args[i]
+        if a == "--trial":
+            is_trial = True
+        elif a == "--tier":
+            tier = args[i + 1]
+            i += 1
+        elif a == "--uses":
+            uses = int(args[i + 1])
+            i += 1
+        elif not positional_used and a.isdigit():
+            days = int(a)
+            positional_used = True
+        i += 1
+    return days, is_trial, tier, uses
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args:
         print(__doc__)
         raise SystemExit(1)
     cmd = args[0]
+    if cmd == "gen-code":
+        days, is_trial, tier, uses = _parse_gen_code_args(args[1:])
+        asyncio.run(_gen_code(days, is_trial, tier, uses))
+        return
+    if cmd == "list-codes":
+        asyncio.run(_list_codes())
+        return
     if cmd == "grant-admin":
         asyncio.run(_grant_admin(int(args[1]), True))
     elif cmd == "revoke-admin":

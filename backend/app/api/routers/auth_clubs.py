@@ -5,7 +5,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import AuthContext, get_auth, get_current_user, require_admin, require_owner
+from app.api.deps import (
+    AuthContext,
+    get_auth,
+    get_current_user,
+    require_admin,
+    require_owner,
+    require_platform_admin,
+)
 from app.core.enums import Role
 from app.db.session import get_db
 from app.models import ClubMembership, User
@@ -47,8 +54,14 @@ async def auth_me(
 async def create_club(
     payload: ClubCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
 ) -> ClubOut:
+    """Direct club provisioning — platform_admin only (unlimited subscription).
+
+    Regular customers create a club by redeeming an activation code
+    (``POST /activation/redeem``); self-service club creation is disabled so
+    access is always granted by the platform owner first.
+    """
     club = await clubs_svc.create_club(
         db,
         owner=user,

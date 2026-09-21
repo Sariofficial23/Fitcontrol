@@ -20,6 +20,10 @@ async def create_club(
     name: str,
     timezone_name: str = "Asia/Tashkent",
     default_language: str = "ru",
+    subscription_status: str = "active",
+    plan_tier: str | None = None,
+    expires_at=None,
+    activated_at=None,
 ) -> Club:
     if not name or not name.strip():
         raise ValidationErrorApp("Club name is required")
@@ -27,6 +31,10 @@ async def create_club(
         name=name.strip(),
         timezone=timezone_name,
         default_language=default_language,
+        subscription_status=subscription_status,
+        plan_tier=plan_tier,
+        expires_at=expires_at,
+        activated_at=activated_at,
     )
     db.add(club)
     await db.flush()

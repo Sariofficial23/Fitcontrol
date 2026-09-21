@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { api, setClubId } from "./api";
-import type { AuthMe, Membership, Role } from "./types";
+import type { AuthMe, Membership, Role, SubscriptionStatus } from "./types";
 
 interface AppState {
   me: AuthMe | null;
@@ -8,8 +8,10 @@ interface AppState {
   error: string | null;
   activeClub: Membership | null;
   role: Role | null;
+  subscription: SubscriptionStatus | null;
   selectClub: (clubId: number) => void;
   reload: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState>({} as AppState);
@@ -22,6 +24,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeClub, setActiveClub] = useState<Membership | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+
+  async function refreshSubscription() {
+    try {
+      const s = await api<SubscriptionStatus>("/subscription/status");
+      setSubscription(s);
+    } catch {
+      setSubscription(null);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -51,6 +63,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (activeClub) refreshSubscription();
+    else setSubscription(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClub?.club.id]);
+
   function selectClub(clubId: number) {
     const m = me?.clubs.find((c) => c.club.id === clubId) ?? null;
     setActiveClub(m);
@@ -66,8 +84,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         error,
         activeClub,
         role: activeClub?.role ?? null,
+        subscription,
         selectClub,
         reload: load,
+        refreshSubscription,
       }}
     >
       {children}

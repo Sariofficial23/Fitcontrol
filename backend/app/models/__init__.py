@@ -32,6 +32,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.enums import (
     AdjustmentType,
     ClientStatus,
+    ClubSubscriptionStatus,
     DurationUnit,
     InviteStatus,
     PaymentMethod,
@@ -80,6 +81,15 @@ class Club(PKMixin, TimestampMixin, Base):
     # to recover a club. Never used for authentication, only identity checks.
     recovery_email: Mapped[str | None] = mapped_column(String(200))
     recovery_phone: Mapped[str | None] = mapped_column(String(32))
+    # --- Platform access / billing (provisioning) ---
+    # A club is created only by redeeming an ActivationCode (or by a
+    # platform_admin). ``expires_at is None`` = unlimited (non-expiring) grant.
+    subscription_status: Mapped[str] = mapped_column(
+        String(16), default=ClubSubscriptionStatus.active.value, nullable=False
+    )
+    plan_tier: Mapped[str | None] = mapped_column(String(40))
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     memberships: Mapped[list["ClubMembership"]] = relationship(back_populates="club")
 
@@ -104,6 +114,32 @@ class ClubMembership(PKMixin, TimestampMixin, Base):
 
     club: Mapped["Club"] = relationship(back_populates="memberships")
     user: Mapped["User"] = relationship(back_populates="memberships")
+
+
+class ActivationCode(PKMixin, TimestampMixin, Base):
+    """A platform-level license/activation code issued by a platform_admin.
+
+    Redeeming a code creates a new club with a subscription window
+    (``duration_days`` from redemption; ``is_trial`` marks a trial grant).
+    Not club-scoped — codes exist before any club does.
+    """
+
+    __tablename__ = "activation_codes"
+    __table_args__ = (UniqueConstraint("code", name="uq_activation_code"),)
+
+    code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    plan_tier: Mapped[str] = mapped_column(String(40), default="basic", nullable=False)
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_trial: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Code itself stops being redeemable after this instant (None = no limit).
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)  # active|revoked
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )
 
 
 class StaffInvite(PKMixin, TimestampMixin, Base):
@@ -405,6 +441,7 @@ __all__ = [
     "User",
     "Club",
     "ClubMembership",
+    "ActivationCode",
     "StaffInvite",
     "Client",
     "Plan",

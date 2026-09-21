@@ -22,6 +22,19 @@ ROLE_WEIGHT: dict[str, int] = {
 }
 
 
+class ClubSubscriptionStatus(str, enum.Enum):
+    """Platform-level access status of a whole club (billing/provisioning).
+
+    Distinct from :class:`SubscriptionStatus`, which is a client's membership.
+    ``expires_at is None`` means an unlimited (non-expiring) grant.
+    """
+
+    trial = "trial"
+    active = "active"
+    expired = "expired"
+    suspended = "suspended"
+
+
 class ClientStatus(str, enum.Enum):
     active = "active"
     archived = "archived"

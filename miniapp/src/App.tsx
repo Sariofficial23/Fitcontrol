@@ -10,6 +10,8 @@ import Subscriptions from "./pages/Subscriptions";
 import Visits from "./pages/Visits";
 import Finance from "./pages/Finance";
 import Settings from "./pages/Settings";
+import Platform from "./pages/Platform";
+import SubscriptionBlocked from "./pages/SubscriptionBlocked";
 
 function Header() {
   const { t, lang, setLang } = useI18n();
@@ -46,6 +48,7 @@ function Header() {
 
 function BottomNav() {
   const { t } = useI18n();
+  const { me } = useApp();
   const tabs = [
     { to: "/overview", label: t("nav_overview"), icon: "📊" },
     { to: "/clients", label: t("nav_clients"), icon: "👥" },
@@ -53,6 +56,9 @@ function BottomNav() {
     { to: "/visits", label: t("nav_visits"), icon: "✅" },
     { to: "/finance", label: t("nav_finance"), icon: "💰" },
     { to: "/settings", label: t("nav_settings"), icon: "⚙️" },
+    ...(me?.user.is_platform_admin
+      ? [{ to: "/platform", label: t("nav_platform"), icon: "🛠" }]
+      : []),
   ];
   return (
     <nav className="bottom-nav">
@@ -71,7 +77,7 @@ function BottomNav() {
 }
 
 export default function App() {
-  const { loading, error, me, activeClub, reload } = useApp();
+  const { loading, error, me, activeClub, subscription, reload } = useApp();
 
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -83,6 +89,21 @@ export default function App() {
         <Header />
         <main className="content">
           <Onboarding />
+        </main>
+      </div>
+    );
+  }
+
+  // Server-side gate is authoritative; this mirrors it in the UI. Platform
+  // admins are exempt (they need access to manage clubs).
+  const blocked =
+    subscription != null && !subscription.allowed && !me.user.is_platform_admin;
+  if (blocked) {
+    return (
+      <div className="app">
+        <Header />
+        <main className="content">
+          <SubscriptionBlocked />
         </main>
       </div>
     );
@@ -101,6 +122,9 @@ export default function App() {
           <Route path="/visits" element={<Visits />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/settings" element={<Settings />} />
+          {me.user.is_platform_admin && (
+            <Route path="/platform" element={<Platform />} />
+          )}
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>
       </main>
