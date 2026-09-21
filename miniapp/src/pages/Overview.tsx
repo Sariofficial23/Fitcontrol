@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { formatMoney } from "../format";
 import { useI18n } from "../i18n";
@@ -9,6 +10,7 @@ type Period = "today" | "7d" | "month" | "custom";
 
 export default function Overview() {
   const { t, lang } = useI18n();
+  const nav = useNavigate();
   const [period, setPeriod] = useState<Period>("month");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -65,7 +67,11 @@ export default function Overview() {
       {data && !loading && (
         <div className="grid">
           <StatCard label={t("active_clients")} value={String(data.active_clients)} />
-          <StatCard label={t("visits_today")} value={String(data.visits_today)} />
+          <StatCard
+            label={t("visits_today")}
+            value={String(data.visits_today)}
+            onClick={() => nav("/visits")}
+          />
           <StatCard
             label={t("ending_soon")}
             value={String(data.subscriptions_ending_soon)}

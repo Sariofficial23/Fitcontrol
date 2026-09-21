@@ -1,7 +1,18 @@
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useI18n } from "./i18n";
 import { useApp } from "./state";
 import { ErrorState, Loading } from "./ui";
+import {
+  IconClients,
+  IconFinance,
+  IconOverview,
+  IconPlans,
+  IconPlatform,
+  IconPlus,
+  IconSettings,
+  IconVisits,
+} from "./icons";
 import Onboarding from "./pages/Onboarding";
 import Overview from "./pages/Overview";
 import Clients from "./pages/Clients";
@@ -49,30 +60,66 @@ function Header() {
 function BottomNav() {
   const { t } = useI18n();
   const { me } = useApp();
+  const nav = useNavigate();
+  const [sheet, setSheet] = useState(false);
+
   const tabs = [
-    { to: "/overview", label: t("nav_overview"), icon: "📊" },
-    { to: "/clients", label: t("nav_clients"), icon: "👥" },
-    { to: "/subscriptions", label: t("nav_subscriptions"), icon: "🎫" },
-    { to: "/visits", label: t("nav_visits"), icon: "✅" },
-    { to: "/finance", label: t("nav_finance"), icon: "💰" },
-    { to: "/settings", label: t("nav_settings"), icon: "⚙️" },
+    { to: "/overview", label: t("nav_overview"), Icon: IconOverview },
+    { to: "/clients", label: t("nav_clients"), Icon: IconClients },
+    { to: "/subscriptions", label: t("nav_subscriptions"), Icon: IconPlans },
+    { to: "/finance", label: t("nav_finance"), Icon: IconFinance },
+    { to: "/settings", label: t("nav_settings"), Icon: IconSettings },
     ...(me?.user.is_platform_admin
-      ? [{ to: "/platform", label: t("nav_platform"), icon: "🛠" }]
+      ? [{ to: "/platform", label: t("nav_platform"), Icon: IconPlatform }]
       : []),
   ];
+
+  function go(to: string) {
+    setSheet(false);
+    nav(to);
+  }
+
   return (
-    <nav className="bottom-nav">
-      {tabs.map((tab) => (
-        <NavLink
-          key={tab.to}
-          to={tab.to}
-          className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
-        >
-          <span className="nav-icon">{tab.icon}</span>
-          <span className="nav-label">{tab.label}</span>
-        </NavLink>
-      ))}
-    </nav>
+    <>
+      {sheet && (
+        <div className="sheet-backdrop" onClick={() => setSheet(false)}>
+          <div className="action-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-title">{t("quick_actions")}</div>
+            <button className="sheet-item" onClick={() => go("/visits")}>
+              <IconVisits className="sheet-ic" />
+              <span>{t("register_visit")}</span>
+            </button>
+            <button className="sheet-item" onClick={() => go("/clients")}>
+              <IconClients className="sheet-ic" />
+              <span>{t("new_client_action")}</span>
+            </button>
+            <button className="sheet-cancel" onClick={() => setSheet(false)}>
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+      <nav className="bottom-nav nav-glow" style={{ ["--tabs" as string]: tabs.length } as Record<string, number>}>
+        {tabs.map((tab) => {
+          const Icon = tab.Icon;
+          return (
+            <NavLink
+              key={tab.to}
+              to={tab.to}
+              className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+            >
+              <span className="nav-ic">
+                <Icon className="nav-svg" />
+              </span>
+              <span className="nav-label">{tab.label}</span>
+            </NavLink>
+          );
+        })}
+        <button className="nav-fab" onClick={() => setSheet(true)} aria-label={t("quick_actions")}>
+          <IconPlus />
+        </button>
+      </nav>
+    </>
   );
 }
 

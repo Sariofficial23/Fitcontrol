@@ -5,9 +5,23 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   return <div className={`card ${className}`}>{children}</div>;
 }
 
-export function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
+export function StatCard({
+  label,
+  value,
+  accent,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  onClick?: () => void;
+}) {
   return (
-    <div className="stat-card">
+    <div
+      className={`stat-card${onClick ? " stat-card--tap" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+    >
       <div className="stat-value" style={accent ? { color: accent } : undefined}>
         {value}
       </div>
