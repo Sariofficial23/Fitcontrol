@@ -69,6 +69,12 @@ async def _resolve_telegram_user(tg: TelegramUser, db: AsyncSession) -> User:
                 changed = True
         if changed:
             await db.flush()
+
+    # Bootstrap: promote configured Telegram IDs to platform_admin on login so
+    # the platform owner can gain access without shell/DB access. Never demotes.
+    if not user.is_platform_admin and tg.id in settings.platform_admin_id_set:
+        user.is_platform_admin = True
+        await db.flush()
     return user
 
 

@@ -118,6 +118,17 @@ async def test_platform_endpoints_require_platform_admin(client):
     ).status_code == 403
 
 
+async def test_platform_admin_ids_bootstrap_promotes_on_login(client, monkeypatch):
+    from app.core import config as config_mod
+
+    monkeypatch.setattr(config_mod.settings, "platform_admin_ids", "7777")
+    # A user in the bootstrap list is auto-promoted on first authenticated call.
+    u = ApiUser(client, telegram_id=7777)
+    assert (await u.get("/api/v1/platform/clubs")).status_code == 200
+    me = await u.get("/api/v1/auth/me")
+    assert me.json()["user"]["is_platform_admin"] is True
+
+
 async def test_platform_admin_can_list_clubs(client):
     owner = await seed_user(6400)
     club = await seed_club("Listed Gym")

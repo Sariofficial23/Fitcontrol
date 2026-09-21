@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     dev_auth_mode: bool = Field(default=False)
     # Comma-separated list of allowed CORS origins. "*" only for local dev.
     cors_origins: str = Field(default="*")
+    # Comma-separated Telegram IDs auto-promoted to platform_admin on login.
+    # Lets the platform owner bootstrap access without shell/DB access.
+    platform_admin_ids: str = Field(default="")
 
     # --- Notifications / scheduler ---
     # Default IANA timezone used for daily summaries when a club has none set.
@@ -72,6 +75,15 @@ class Settings(BaseSettings):
     @property
     def webhook_path(self) -> str:
         return f"{self.api_v1_prefix}/telegram/webhook"
+
+    @property
+    def platform_admin_id_set(self) -> set[int]:
+        out: set[int] = set()
+        for part in self.platform_admin_ids.split(","):
+            part = part.strip()
+            if part.isdigit():
+                out.add(int(part))
+        return out
 
     @property
     def cors_origins_list(self) -> list[str]:
