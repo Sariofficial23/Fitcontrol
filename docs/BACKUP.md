@@ -59,6 +59,29 @@ Rotate/retain (keep 14 days):
 find /backups -name 'fitcontrol_*.dump' -mtime +14 -delete
 ```
 
+## Built-in JSON backup (no psql needed)
+
+The app ships a portable, dependency-light backup that talks to the DB through
+the app itself — handy on Windows or when `pg_dump` isn't installed. Run it
+locally with the database's **External** URL:
+
+```bash
+# from backend/ (with the venv + deps installed)
+DATABASE_URL="<EXTERNAL_DATABASE_URL>" python -m app.manage backup fitcontrol_backup.json
+```
+
+Restore into a fresh, migrated (empty) database:
+
+```bash
+DATABASE_URL="<NEW_DATABASE_URL>" alembic upgrade head          # create schema
+DATABASE_URL="<NEW_DATABASE_URL>" python -m app.manage restore fitcontrol_backup.json
+```
+
+`restore` expects an empty schema (fresh DB after `alembic upgrade head`) and
+resets Postgres id sequences after loading. Keep the JSON file somewhere safe
+and separate from the database. For large production datasets prefer `pg_dump`
+above; the JSON tool is ideal for quick, tool-free snapshots and migrations.
+
 ## Notes
 
 - Always test a restore into a throwaway database before you rely on a backup.

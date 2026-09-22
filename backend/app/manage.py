@@ -10,6 +10,8 @@ Usage:
   python -m app.manage gen-code [days] [--trial] [--tier basic] [--uses 1]
                                                      # issue an activation code
   python -m app.manage list-codes
+  python -m app.manage backup <file.json>            # dump ALL data to a file
+  python -m app.manage restore <file.json>           # load data into an EMPTY db
 
 Notes:
   * platform_admin is the "support" role for account recovery. It is granted
@@ -20,12 +22,14 @@ Notes:
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
+from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import Date, DateTime, select, text
 
 from app.core.config import settings
-from app.db.session import get_sessionmaker
+from app.db.session import get_engine, get_sessionmaker
 from app.models import User
 
 
@@ -162,12 +166,85 @@ def _parse_gen_code_args(args: list[str]) -> tuple[int, bool, str, int]:
     return days, is_trial, tier, uses
 
 
+def _json_default(o):
+    if isinstance(o, (datetime, date)):
+        return o.isoformat()
+    raise TypeError(f"not serializable: {type(o)}")
+
+
+def _coerce_row(table, row: dict) -> dict:
+    """Convert JSON scalars back to Python types the columns expect."""
+    out = {}
+    for name, value in row.items():
+        col = table.c.get(name)
+        if value is not None and col is not None and isinstance(value, str):
+            if isinstance(col.type, DateTime):
+                value = datetime.fromisoformat(value)
+            elif isinstance(col.type, Date):
+                value = date.fromisoformat(value)
+        out[name] = value
+    return out
+
+
+async def _backup(path: str) -> None:
+    import app.models  # noqa: F401  (register all tables on Base.metadata)
+    from app.db.base import Base
+
+    eng = get_engine()
+    data: dict = {"version": 1, "created_at": datetime.utcnow().isoformat(), "tables": {}}
+    async with eng.connect() as conn:
+        for table in Base.metadata.sorted_tables:  # parents first
+            res = await conn.execute(table.select())
+            rows = [dict(r._mapping) for r in res]
+            data["tables"][table.name] = rows
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, default=_json_default)
+    total = sum(len(v) for v in data["tables"].values())
+    print(f"Backup written to {path}: {total} rows across {len(data['tables'])} tables.")
+
+
+async def _restore(path: str) -> None:
+    import app.models  # noqa: F401
+    from app.db.base import Base
+
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    tables_data = data["tables"]
+    eng = get_engine()
+    is_pg = eng.url.get_backend_name().startswith("postgres")
+    async with eng.begin() as conn:
+        for table in Base.metadata.sorted_tables:  # parents first
+            rows = tables_data.get(table.name) or []
+            if not rows:
+                continue
+            await conn.execute(table.insert(), [_coerce_row(table, r) for r in rows])
+        if is_pg:
+            # Bump autoincrement sequences so future inserts don't collide.
+            for table in Base.metadata.sorted_tables:
+                if "id" in table.c:
+                    await conn.execute(
+                        text(
+                            "SELECT setval(pg_get_serial_sequence(:t, 'id'), "
+                            "COALESCE((SELECT MAX(id) FROM " + table.name + "), 1), true)"
+                        ),
+                        {"t": table.name},
+                    )
+    total = sum(len(v) for v in tables_data.values())
+    print(f"Restored {total} rows into the database.")
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args:
         print(__doc__)
         raise SystemExit(1)
     cmd = args[0]
+    if cmd == "backup":
+        asyncio.run(_backup(args[1]))
+        return
+    if cmd == "restore":
+        asyncio.run(_restore(args[1]))
+        return
     if cmd == "gen-code":
         days, is_trial, tier, uses = _parse_gen_code_args(args[1:])
         asyncio.run(_gen_code(days, is_trial, tier, uses))
