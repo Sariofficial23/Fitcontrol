@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
         auth_clubs,
         clients_plans,
         dashboard,
+        expenses,
         payments,
         platform,
         subscriptions,
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     api.include_router(support.router)
     api.include_router(activation.router)
     api.include_router(platform.router)
+    api.include_router(expenses.router)
 
     # Telegram webhook (only active when TELEGRAM_UPDATE_MODE=webhook).
     from app.bot.webhook import router as webhook_router

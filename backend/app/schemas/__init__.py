@@ -342,7 +342,41 @@ class ReportIncomeOut(BaseModel):
     total_income: int
     total_refunds: int
     net_income: int
+    total_expenses: int
+    profit: int
     by_method: list[IncomeByMethod]
+
+
+# --- Expenses ---
+class ExpenseCreate(BaseModel):
+    amount: int = Field(gt=0, description="Integer UZS, > 0")
+    category: str = Field(min_length=1, max_length=40)
+    spent_at: date | None = None  # defaults to today
+    comment: str | None = None
+
+
+class ExpenseOut(ORMModel):
+    id: int
+    amount: int
+    category: str
+    spent_at: date
+    comment: str | None = None
+    is_void: bool
+    created_by: int | None = None
+    created_at: datetime
+
+
+class ExpenseCategoryRow(BaseModel):
+    category: str
+    total: int
+    count: int
+
+
+class ExpenseReportOut(BaseModel):
+    period_start: date
+    period_end: date
+    total: int
+    by_category: list[ExpenseCategoryRow]
 
 
 # --- Support / account recovery (platform_admin only) ---

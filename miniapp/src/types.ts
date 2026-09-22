@@ -143,6 +143,16 @@ export interface DebtRow {
   debt: number;
 }
 
+export interface Expense {
+  id: number;
+  amount: number;
+  category: string;
+  spent_at: string;
+  comment?: string | null;
+  is_void: boolean;
+  created_at: string;
+}
+
 export interface Dashboard {
   active_clients: number;
   visits_today: number;

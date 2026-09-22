@@ -398,6 +398,32 @@ class Visit(PKMixin, TimestampMixin, Base):
 # --------------------------------------------------------------------------- #
 # Notifications & audit
 # --------------------------------------------------------------------------- #
+class Expense(PKMixin, TimestampMixin, Base):
+    """A club expense (rent, salary, utilities, …). Integer UZS.
+
+    Soft-voided rather than hard-deleted, and every change is audited, so the
+    expense ledger stays consistent with the rest of the finance journal.
+    """
+
+    __tablename__ = "expenses"
+    __table_args__ = (
+        Index("ix_expense_club", "club_id"),
+        Index("ix_expense_club_date", "club_id", "spent_at"),
+    )
+
+    club_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False
+    )
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)  # integer UZS, > 0
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    spent_at: Mapped[date] = mapped_column(Date, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    is_void: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 class NotificationLog(PKMixin, TimestampMixin, Base):
     __tablename__ = "notification_logs"
     __table_args__ = (
@@ -451,6 +477,7 @@ __all__ = [
     "Payment",
     "FinancialAdjustment",
     "Visit",
+    "Expense",
     "NotificationLog",
     "AuditLog",
 ]

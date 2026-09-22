@@ -15,6 +15,7 @@ from app.schemas import (
     IncomeByMethod,
     ReportIncomeOut,
 )
+from app.services import expenses as expenses_svc
 from app.services import reports as reports_svc
 
 router = APIRouter()
@@ -73,12 +74,18 @@ async def report_income(
     by_method_rows = await reports_svc.income_by_method(
         db, club_id=ctx.club_id, start=p_start, end=p_end
     )
+    total_expenses = await expenses_svc.total_in_period(
+        db, club_id=ctx.club_id, start=p_start, end=p_end
+    )
+    net_income = total_income - total_refunds
     return ReportIncomeOut(
         period_start=p_start,
         period_end=p_end,
         total_income=total_income,
         total_refunds=total_refunds,
-        net_income=total_income - total_refunds,
+        net_income=net_income,
+        total_expenses=total_expenses,
+        profit=net_income - total_expenses,
         by_method=[
             IncomeByMethod(method=PaymentMethod(m), total=t, count=c)
             for m, t, c in by_method_rows
