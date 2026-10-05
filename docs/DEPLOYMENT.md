@@ -209,6 +209,28 @@ curl https://fitcontrol-api.onrender.com/health
 
 ---
 
+## 7a. Keep-alive (prevent the free tier from sleeping)
+
+Render's **free** web service spins down after ~15 min without inbound traffic,
+so the next request (or Telegram webhook) hits a slow cold start. Two independent
+layers keep it warm:
+
+1. **In-process self-ping.** When `KEEPALIVE_ENABLED=true` (default) **and**
+   `PUBLIC_API_URL` is set, the API GETs its own `/health` every
+   `KEEPALIVE_INTERVAL_SECONDS` (default `600` = 10 min). This counts as inbound
+   traffic and resets the idle timer. It runs only while the process is alive, so
+   it keeps a running instance warm but cannot wake one that already slept.
+2. **External GitHub Actions cron** (`.github/workflows/keepalive.yml`). Runs on
+   GitHub every ~10 min, independent of the server, so it also **revives** a
+   spun-down instance after a deploy or crash. Override the pinged URL with a
+   repository **Variable** named `KEEPALIVE_URL` (Settings → Secrets and
+   variables → Actions → Variables); otherwise it uses the default Render URL.
+
+> Note: the only way to *fully* avoid cold starts is a paid (always-on) plan.
+> Keep-alive makes cold starts rare on the free tier but cannot guarantee zero.
+
+---
+
 ## 8. Disaster recovery
 
 ### 8a. Recover after a Render service failure

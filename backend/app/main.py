@@ -1,16 +1,36 @@
 """FastAPI application entrypoint."""
 from __future__ import annotations
 
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core import keepalive
 from app.core.config import settings
 from app.core.errors import register_error_handlers
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("fitcontrol")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start background tasks (keep-alive self-ping, etc.).
+    tasks: list[asyncio.Task] = []
+    keepalive.start(tasks)
+    try:
+        yield
+    finally:
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 def create_app() -> FastAPI:
@@ -21,6 +41,7 @@ def create_app() -> FastAPI:
         openapi_url=f"{settings.api_v1_prefix}/openapi.json",
         docs_url=f"{settings.api_v1_prefix}/docs",
         redoc_url=None,
+        lifespan=lifespan,
     )
 
     app.add_middleware(

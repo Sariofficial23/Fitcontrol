@@ -60,6 +60,17 @@ class Settings(BaseSettings):
     # PLATFORM_ADMIN_IDS env var (env value wins over this default).
     platform_admin_ids: str = Field(default="689136142")
 
+    # --- Keep-alive (anti-sleep) ---
+    # On free PaaS tiers (e.g. Render) the web service is spun down after a few
+    # minutes without inbound traffic, so the first request after idle is slow
+    # ("cold start") and the Telegram webhook can miss updates. When enabled and
+    # PUBLIC_API_URL is set, the API periodically GETs its own /health endpoint,
+    # which counts as inbound traffic and keeps the instance warm.
+    keepalive_enabled: bool = Field(default=True)
+    # Seconds between self-pings. Must be comfortably under the host's idle
+    # window (Render free = ~15 min), so 10 min is a safe default.
+    keepalive_interval_seconds: int = Field(default=600)
+
     # --- Notifications / scheduler ---
     # Default IANA timezone used for daily summaries when a club has none set.
     default_timezone: str = Field(default="Asia/Tashkent")
@@ -77,6 +88,13 @@ class Settings(BaseSettings):
     @property
     def webhook_path(self) -> str:
         return f"{self.api_v1_prefix}/telegram/webhook"
+
+    @property
+    def keepalive_url(self) -> str:
+        """Self-ping target (the unauthenticated health endpoint)."""
+        if not self.public_api_url:
+            return ""
+        return self.public_api_url.rstrip("/") + "/health"
 
     @property
     def platform_admin_id_set(self) -> set[int]:
