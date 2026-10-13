@@ -7,12 +7,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -30,18 +32,47 @@ def _normalize_async_url(url: str) -> str:
     return url
 
 
-def _make_engine(url: str) -> AsyncEngine:
+# libpq-style query params that asyncpg does not accept as connect() kwargs.
+_LIBPQ_ONLY_PARAMS = ("sslmode", "channel_binding")
+
+
+def _split_asyncpg_url(url: str) -> tuple[str, dict]:
+    """Strip libpq-only params (Neon/Vercel URLs carry ``sslmode=require`` and
+    ``channel_binding=require``) and translate sslmode into asyncpg's ``ssl``."""
+    parsed = make_url(url)
+    query = dict(parsed.query)
+    connect_args: dict = {}
+    sslmode = query.get("sslmode")
+    for key in _LIBPQ_ONLY_PARAMS:
+        query.pop(key, None)
+    if sslmode:
+        connect_args["ssl"] = sslmode  # asyncpg accepts libpq sslmode names
+    return parsed.set(query=query).render_as_string(hide_password=False), connect_args
+
+
+def _make_engine(url: str, *, serverless: bool = False) -> AsyncEngine:
     url = _normalize_async_url(url)
     connect_args: dict = {}
+    kwargs: dict = {}
     if url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-    return create_async_engine(url, future=True, pool_pre_ping=True, connect_args=connect_args)
+    elif url.startswith("postgresql+asyncpg"):
+        url, connect_args = _split_asyncpg_url(url)
+    if serverless and not url.startswith("sqlite"):
+        # Each serverless invocation may run on a new event loop and instances
+        # are frozen between requests: don't keep pooled connections around.
+        # Statement cache off so PgBouncer-style poolers (Neon "-pooler") work.
+        kwargs["poolclass"] = NullPool
+        connect_args["statement_cache_size"] = 0
+    return create_async_engine(
+        url, future=True, pool_pre_ping=True, connect_args=connect_args, **kwargs
+    )
 
 
 def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
-        _engine = _make_engine(settings.database_url)
+        _engine = _make_engine(settings.database_url, serverless=settings.on_vercel)
     return _engine
 
 

@@ -5,9 +5,11 @@ sensitive is hard-coded. See README for the full list of variables.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,6 +82,51 @@ class Settings(BaseSettings):
     daily_summary_hour: int = Field(default=9)
     # Days-before-expiry threshold for "ending soon" reminders.
     expiry_reminder_days: int = Field(default=3)
+
+    # --- Vercel (serverless) ---
+    # Vercel sets VERCEL=1 and VERCEL_PROJECT_PRODUCTION_URL automatically. When
+    # running there, the bot must use webhooks (no long-lived processes), the
+    # keep-alive is pointless, and the public URLs default to the project domain.
+    vercel: str = Field(default="")
+    vercel_project_production_url: str = Field(default="")
+    # Shared secret for scheduled jobs and the one-time setup endpoint. Vercel
+    # Cron sends it as "Authorization: Bearer <CRON_SECRET>".
+    cron_secret: str = Field(default="")
+
+    @model_validator(mode="after")
+    def _apply_vercel_defaults(self) -> "Settings":
+        if not self.on_vercel:
+            return self
+        self.telegram_update_mode = "webhook"
+        self.keepalive_enabled = False
+        if self.environment.strip().lower() == "development":
+            self.environment = "production"
+        host = self.vercel_project_production_url.strip().rstrip("/")
+        if host:
+            base = host if host.startswith("http") else f"https://{host}"
+            if not self.public_api_url:
+                self.public_api_url = base
+            if not self.webapp_url:
+                self.webapp_url = base
+        if self.cors_origins.strip() == "*" and self.webapp_url:
+            self.cors_origins = self.webapp_url.rstrip("/")
+        return self
+
+    @property
+    def on_vercel(self) -> bool:
+        return self.vercel.strip() not in ("", "0")
+
+    @property
+    def effective_webhook_secret(self) -> str:
+        """Explicit TELEGRAM_WEBHOOK_SECRET, or one derived from the bot token so
+        webhook mode works without configuring an extra secret."""
+        if self.telegram_webhook_secret:
+            return self.telegram_webhook_secret
+        if not self.telegram_bot_token:
+            return ""
+        return hmac.new(
+            self.telegram_bot_token.encode(), b"fitcontrol-webhook", hashlib.sha256
+        ).hexdigest()
 
     @property
     def is_production(self) -> bool:

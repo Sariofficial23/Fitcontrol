@@ -42,7 +42,9 @@ async def _ping_loop() -> None:
 
 
 def should_run() -> bool:
-    return bool(settings.keepalive_enabled and settings.keepalive_url)
+    return bool(
+        settings.keepalive_enabled and settings.keepalive_url and not settings.on_vercel
+    )
 
 
 def start(loop_task_holder: list[asyncio.Task]) -> None:

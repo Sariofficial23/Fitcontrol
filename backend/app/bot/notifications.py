@@ -42,6 +42,9 @@ class Sender:
     async def send(self, telegram_id: int, text: str) -> None:  # pragma: no cover
         raise NotImplementedError
 
+    async def close(self) -> None:
+        """Release network resources (no-op by default)."""
+
 
 class LoggingSender(Sender):
     """Fallback sink used when no bot token is configured (dev/testing)."""
@@ -157,7 +160,12 @@ async def run_overdue_reminders(db: AsyncSession, sender: Sender, club: Club, to
 
 
 async def run_daily_summary(
-    db: AsyncSession, sender: Sender, club: Club, now_utc: datetime
+    db: AsyncSession,
+    sender: Sender,
+    club: Club,
+    now_utc: datetime,
+    *,
+    any_hour: bool = False,
 ) -> int:
     if not club.notify_daily_summary_enabled:
         return 0
@@ -166,7 +174,9 @@ async def run_daily_summary(
     except Exception:  # noqa: BLE001
         tz = ZoneInfo(settings.default_timezone)
     local = now_utc.astimezone(tz)
-    if local.hour != settings.daily_summary_hour:
+    # A once-a-day trigger (e.g. Vercel Hobby cron) can't hit the exact local
+    # hour of every club, so it passes any_hour; dedup keeps it to one per day.
+    if not any_hour and local.hour != settings.daily_summary_hour:
         return 0
     today = local.date()
     data = await reports_svc.dashboard(
@@ -192,8 +202,13 @@ async def run_daily_summary(
     return count
 
 
-async def run_due_jobs(sender: Sender, now_utc: datetime | None = None) -> dict:
-    """Run all notification jobs once for every active club. Returns counters."""
+async def run_due_jobs(
+    sender: Sender, now_utc: datetime | None = None, *, any_hour: bool = False
+) -> dict:
+    """Run all notification jobs once for every active club. Returns counters.
+
+    ``any_hour`` sends the daily summary regardless of the club-local hour (for
+    schedulers that only fire once per day)."""
     now_utc = now_utc or datetime.now(tz=ZoneInfo("UTC"))
     today = now_utc.date()
     sm = get_sessionmaker()
@@ -207,7 +222,9 @@ async def run_due_jobs(sender: Sender, now_utc: datetime | None = None) -> dict:
             club = (await db.execute(select(Club).where(Club.id == club.id))).scalar_one()
             totals["expiry"] += await run_expiry_reminders(db, sender, club, today)
             totals["overdue"] += await run_overdue_reminders(db, sender, club, today)
-            totals["daily_summary"] += await run_daily_summary(db, sender, club, now_utc)
+            totals["daily_summary"] += await run_daily_summary(
+                db, sender, club, now_utc, any_hour=any_hour
+            )
     return totals
 
 
@@ -227,6 +244,9 @@ def _build_sender() -> Sender:
     class BotSender(Sender):
         async def send(self, telegram_id: int, text: str) -> None:
             await bot.send_message(telegram_id, text)
+
+        async def close(self) -> None:
+            await bot.session.close()
 
     return BotSender()
 

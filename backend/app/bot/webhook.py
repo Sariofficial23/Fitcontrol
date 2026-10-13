@@ -1,6 +1,7 @@
 """Telegram webhook integration for the FastAPI backend (alternative to polling).
 
-Enable by setting ``TELEGRAM_UPDATE_MODE=webhook`` and ``TELEGRAM_WEBHOOK_SECRET``.
+Enable by setting ``TELEGRAM_UPDATE_MODE=webhook`` (forced on Vercel). The secret
+is ``TELEGRAM_WEBHOOK_SECRET`` or, when unset, one derived from the bot token.
 Telegram delivers updates to ``{PUBLIC_API_URL}{API_V1_PREFIX}/telegram/webhook``
 and includes the secret in the ``X-Telegram-Bot-Api-Secret-Token`` header, which
 we verify in constant time before processing.
@@ -43,17 +44,24 @@ async def telegram_webhook(
     if settings.telegram_update_mode != "webhook":
         return JSONResponse(status_code=404, content={"error": {"code": "webhook_disabled"}})
 
-    secret = settings.telegram_webhook_secret
+    secret = settings.effective_webhook_secret
     if not secret or not x_telegram_bot_api_secret_token or not hmac.compare_digest(
         x_telegram_bot_api_secret_token, secret
     ):
         return JSONResponse(status_code=403, content={"error": {"code": "bad_secret"}})
 
+    # Serverless runtimes may run each request on a fresh event loop, so a
+    # cached Bot (whose HTTP session is bound to the old loop) can't be reused.
+    bot = None
     try:
         payload = await request.json()
         update = Update.model_validate(payload)
-        await dp.feed_update(_get_bot(), update)
+        bot = build_bot() if settings.on_vercel else _get_bot()
+        await dp.feed_update(bot, update)
     except Exception as exc:  # noqa: BLE001 - never make Telegram retry-storm
         logger.warning("Failed to process webhook update: %s", exc)
+    finally:
+        if settings.on_vercel and bot is not None:
+            await bot.session.close()
     # Always 200 so Telegram considers the update delivered.
     return JSONResponse(status_code=200, content={"ok": True})

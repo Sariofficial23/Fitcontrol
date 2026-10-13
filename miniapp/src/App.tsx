@@ -202,7 +202,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app app--nav">
       <Header />
       <main className="content">
         <Routes>

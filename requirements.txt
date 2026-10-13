@@ -1,0 +1,13 @@
+# Runtime dependencies for the Vercel Python function (api/index.py).
+# Keep in sync with backend/requirements.txt (uvicorn is not needed on Vercel;
+# psycopg2-binary is needed by Alembic, which /api/v1/ops/setup runs).
+fastapi==0.115.6
+pydantic==2.9.2
+pydantic-settings==2.6.1
+SQLAlchemy==2.0.36
+alembic==1.14.0
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+aiogram==3.15.0
+python-dateutil==2.9.0.post0
+httpx==0.28.1

@@ -17,7 +17,8 @@ Notes:
   * platform_admin is the "support" role for account recovery. It is granted
     only here (server-side), never via the API — a Telegram ID can never
     self-escalate.
-  * set-webhook uses PUBLIC_API_URL + TELEGRAM_WEBHOOK_SECRET from the env.
+  * set-webhook uses PUBLIC_API_URL + TELEGRAM_WEBHOOK_SECRET from the env
+    (the secret defaults to one derived from TELEGRAM_BOT_TOKEN).
 """
 from __future__ import annotations
 
@@ -65,14 +66,14 @@ async def _set_webhook() -> None:
 
     if not settings.public_api_url:
         raise SystemExit("PUBLIC_API_URL is not set")
-    if not settings.telegram_webhook_secret:
-        raise SystemExit("TELEGRAM_WEBHOOK_SECRET is not set")
+    if not settings.effective_webhook_secret:
+        raise SystemExit("TELEGRAM_WEBHOOK_SECRET (or TELEGRAM_BOT_TOKEN) is not set")
     url = settings.public_api_url.rstrip("/") + settings.webhook_path
     bot = build_bot()
     try:
         await bot.set_webhook(
             url=url,
-            secret_token=settings.telegram_webhook_secret,
+            secret_token=settings.effective_webhook_secret,
             drop_pending_updates=True,
         )
         print(f"Webhook set to {url}")
